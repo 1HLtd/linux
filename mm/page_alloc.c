@@ -2962,6 +2962,11 @@ static inline void show_node(struct zone *zone)
 
 void si_meminfo(struct sysinfo *val)
 {
+#ifdef CONFIG_MEMCG
+	struct task_struct *tsk = NULL;
+	struct mem_cgroup *memcg = NULL;
+	struct cgroup_subsys_state *css = NULL;
+#endif
 	val->totalram = totalram_pages;
 	val->sharedram = 0;
 	val->freeram = global_page_state(NR_FREE_PAGES);
@@ -2969,6 +2974,24 @@ void si_meminfo(struct sysinfo *val)
 	val->totalhigh = totalhigh_pages;
 	val->freehigh = nr_free_highpages();
 	val->mem_unit = PAGE_SIZE;
+#ifdef CONFIG_MEMCG
+	/* If we have the task and the cgroup is not / we should replace
+	 * the totalram val with the val form the current cgroup limit.
+	 * Also calculate the free ram based on the current usage and
+	 * and the new value of totalram.
+	 */
+	tsk = current_thread_info()->task;
+	if (tsk != NULL) {
+		css = task_css(tsk, mem_cgroup_subsys_id);
+		if (strlen(css->cgroup->name->name) > 1) {
+			memcg = mem_cgroup_from_css(css);
+			if (memcg != NULL) {
+				val->totalram = (__kernel_ulong_t)res_counter_read_u64(&memcg->res, RES_LIMIT) >> 10;
+				val->freeram = val->totalram - (res_counter_read_u64(&memcg->res, RES_USAGE) >> 10);
+			}
+		}
+	}
+#endif
 }
 
 EXPORT_SYMBOL(si_meminfo);
