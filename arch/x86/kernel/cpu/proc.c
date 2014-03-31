@@ -4,6 +4,10 @@
 #include <linux/seq_file.h>
 #include <linux/cpufreq.h>
 
+#ifdef CONFIG_CPUSETS
+#include <linux/cgroup.h>
+#endif
+
 /*
  *	Get CPU information for use by the procfs.
  */
@@ -130,12 +134,25 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 
 	return 0;
 }
-
 static void *c_start(struct seq_file *m, loff_t *pos)
 {
+#ifdef CONFIG_CPUSETS
+	struct task_struct *tsk;
+#endif
 	*pos = cpumask_next(*pos - 1, cpu_online_mask);
-	if ((*pos) < nr_cpu_ids)
+	if ((*pos) < nr_cpu_ids) {
+#ifdef CONFIG_CPUSETS
+		tsk = current_thread_info()->task;
+		if (tsk != NULL) {
+			while (cpumask_test_cpu((*pos), &tsk->cpus_allowed) == 0) {
+				(*pos)++;
+				if ((*pos) >= nr_cpu_ids)
+					return NULL;
+				}
+			}
+#endif
 		return &cpu_data(*pos);
+	}
 	return NULL;
 }
 
