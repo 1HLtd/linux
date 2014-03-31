@@ -17,6 +17,10 @@ static int show_schedstat(struct seq_file *seq, void *v)
 	int cpu;
 	int mask_len = DIV_ROUND_UP(NR_CPUS, 32) * 9;
 	char *mask_str = kmalloc(mask_len, GFP_KERNEL);
+#ifdef CONFIG_CPUSETS
+	struct task_struct *tsk;
+	tsk = current_thread_info()->task;
+#endif
 
 	if (mask_str == NULL)
 		return -ENOMEM;
@@ -32,6 +36,11 @@ static int show_schedstat(struct seq_file *seq, void *v)
 #endif
 		cpu = (unsigned long)(v - 2);
 		rq = cpu_rq(cpu);
+
+#ifdef CONFIG_CPUSETS
+		if (tsk != NULL && cpumask_test_cpu(cpu, &tsk->cpus_allowed) == 0)
+			return 0;
+#endif
 
 		/* runqueue-specific stats */
 		seq_printf(seq,
