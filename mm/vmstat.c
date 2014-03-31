@@ -1039,6 +1039,10 @@ static void zoneinfo_show_print(struct seq_file *m, pg_data_t *pgdat,
 							struct zone *zone)
 {
 	int i;
+#ifdef CONFIG_CPUSETS
+	struct task_struct *tsk = NULL;
+#endif
+
 	seq_printf(m, "Node %d, zone %8s", pgdat->node_id, zone->name);
 	seq_printf(m,
 		   "\n  pages free     %lu"
@@ -1072,6 +1076,16 @@ static void zoneinfo_show_print(struct seq_file *m, pg_data_t *pgdat,
 		   "\n  pagesets");
 	for_each_online_cpu(i) {
 		struct per_cpu_pageset *pageset;
+
+#ifdef CONFIG_CPUSETS
+		/* If we have the task and the CPU is not allowed,
+		 * skip the info for that CPU
+		 */
+		tsk = current_thread_info()->task;
+		if (tsk != NULL && !cpumask_test_cpu(i, &tsk->cpus_allowed)) {
+			continue;
+		}
+#endif
 
 		pageset = per_cpu_ptr(zone->pageset, i);
 		seq_printf(m,
