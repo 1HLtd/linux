@@ -23,6 +23,8 @@
 #include <linux/vm_event_item.h>
 #include <linux/hardirq.h>
 #include <linux/jump_label.h>
+#include <linux/res_counter.h>
+#include <linux/vmpressure.h>
 
 struct mem_cgroup;
 struct page_cgroup;
@@ -53,7 +55,191 @@ struct mem_cgroup_reclaim_cookie {
 	unsigned int generation;
 };
 
+struct cg_proto {
+        void                    (*enter_memory_pressure)(struct sock *sk);
+        struct res_counter      *memory_allocated;      /* Current allocated memory. */
+        struct percpu_counter   *sockets_allocated;     /* Current number of sockets. */
+        int                     *memory_pressure;
+        long                    *sysctl_mem;
+        unsigned long           flags;
+        /*
+         * memcg field is used to find which memcg we belong directly
+         * Each memcg struct can hold more than one cg_proto, so container_of
+         * won't really cut.
+         *
+         * The elegant solution would be having an inverse function to
+         * proto_cgroup in struct proto, but that means polluting the structure
+         * for everybody, instead of just for memcg users.
+         */
+        struct mem_cgroup       *memcg;
+};
+#include <net/tcp_memcontrol.h>
+
 #ifdef CONFIG_MEMCG
+
+/*
+ * Per memcg event counter is incremented at every pagein/pageout. With THP,
+ * it will be incremated by the number of pages. This counter is used for
+ * for trigger some periodic events. This is straightforward and better
+ * than using jiffies etc. to handle periodic memcg event.
+ */
+enum mem_cgroup_events_target {
+        MEM_CGROUP_TARGET_THRESH,
+        MEM_CGROUP_TARGET_SOFTLIMIT,
+        MEM_CGROUP_TARGET_NUMAINFO,
+        MEM_CGROUP_NTARGETS,
+};
+#define THRESHOLDS_EVENTS_TARGET 128
+#define SOFTLIMIT_EVENTS_TARGET 1024
+#define NUMAINFO_EVENTS_TARGET  1024
+
+enum mem_cgroup_events_index {
+        MEM_CGROUP_EVENTS_PGPGIN,       /* # of pages paged in */
+        MEM_CGROUP_EVENTS_PGPGOUT,      /* # of pages paged out */
+        MEM_CGROUP_EVENTS_PGFAULT,      /* # of page-faults */
+        MEM_CGROUP_EVENTS_PGMAJFAULT,   /* # of major page-faults */
+        MEM_CGROUP_EVENTS_NSTATS,
+};
+
+struct mem_cgroup_stat_cpu {
+        long count[MEM_CGROUP_STAT_NSTATS];
+        unsigned long events[MEM_CGROUP_EVENTS_NSTATS];
+        unsigned long nr_page_events;
+        unsigned long targets[MEM_CGROUP_NTARGETS];
+};
+
+/* For threshold */
+struct mem_cgroup_threshold {
+        struct eventfd_ctx *eventfd;
+        u64 threshold;
+};
+
+struct mem_cgroup_threshold_ary {
+        /* An array index points to threshold just below or equal to usage. */
+        int current_threshold;
+        /* Size of entries[] */
+        unsigned int size;
+        /* Array of thresholds */
+        struct mem_cgroup_threshold entries[0];
+};
+
+struct mem_cgroup_thresholds {
+        /* Primary thresholds array */
+        struct mem_cgroup_threshold_ary *primary;
+        /*
+         * Spare threshold array.
+         * This is needed to make mem_cgroup_unregister_event() "never fail".
+         * It must be able to store at least primary->size - 1 entries.
+         */
+        struct mem_cgroup_threshold_ary *spare;
+};
+
+/*
+ * The memory controller data structure. The memory controller controls both
+ * page cache and RSS per cgroup. We would eventually like to provide
+ * statistics based on the statistics developed by Rik Van Riel for clock-pro,
+ * to help the administrator determine what knobs to tune.
+ *
+ * TODO: Add a water mark for the memory controller. Reclaim will begin when
+ * we hit the water mark. May be even add a low water mark, such that
+ * no reclaim occurs from a cgroup at it's low water mark, this is
+ * a feature that will be implemented much later in the future.
+ */
+struct mem_cgroup {
+        struct cgroup_subsys_state css;
+        /*
+         * the counter to account for memory usage
+         */
+        struct res_counter res;
+
+        /* vmpressure notifications */
+        struct vmpressure vmpressure;
+
+        /*
+         * the counter to account for mem+swap usage.
+         */
+        struct res_counter memsw;
+
+        /*
+         * the counter to account for kernel memory usage.
+         */
+        struct res_counter kmem;
+        /*
+         * Should the accounting and control be hierarchical, per subtree?
+         */
+        bool use_hierarchy;
+        unsigned long kmem_account_flags; /* See KMEM_ACCOUNTED_*, below */
+
+        bool            oom_lock;
+        atomic_t        under_oom;
+        atomic_t        oom_wakeups;
+
+        int     swappiness;
+        /* OOM-Killer disable */
+        int             oom_kill_disable;
+
+        /* set when res.limit == memsw.limit */
+        bool            memsw_is_minimum;
+
+        /* protect arrays of thresholds */
+        struct mutex thresholds_lock;
+
+        /* thresholds for memory usage. RCU-protected */
+        struct mem_cgroup_thresholds thresholds;
+
+        /* thresholds for mem+swap usage. RCU-protected */
+        struct mem_cgroup_thresholds memsw_thresholds;
+
+        /* For oom notifier event fd */
+        struct list_head oom_notify;
+
+        /*
+         * Should we move charges of a task when a task is moved into this
+         * mem_cgroup ? And what type of charges should we move ?
+         */
+        unsigned long move_charge_at_immigrate;
+        /*
+         * set > 0 if pages under this cgroup are moving to other cgroup.
+         */
+        atomic_t        moving_account;
+        /* taken only while moving_account > 0 */
+        spinlock_t      move_lock;
+        /*
+         * percpu counter.
+         */
+        struct mem_cgroup_stat_cpu __percpu *stat;
+        /*
+         * used when a cpu is offlined or other synchronizations
+         * See mem_cgroup_read_stat().
+         */
+        struct mem_cgroup_stat_cpu nocpu_base;
+        spinlock_t pcp_counter_lock;
+
+        atomic_t        dead_count;
+#if defined(CONFIG_MEMCG_KMEM) && defined(CONFIG_INET)
+        struct tcp_memcontrol tcp_mem;
+#endif
+#if defined(CONFIG_MEMCG_KMEM)
+        /* analogous to slab_common's slab_caches list. per-memcg */
+        struct list_head memcg_slab_caches;
+        /* Not a spinlock, we can take a lot of time walking the list */
+        struct mutex slab_caches_mutex;
+        /* Index in the kmem_cache->memcg_params->memcg_caches array */
+        int kmemcg_id;
+#endif
+
+        int last_scanned_node;
+#if MAX_NUMNODES > 1
+        nodemask_t      scan_nodes;
+        atomic_t        numainfo_events;
+        atomic_t        numainfo_updating;
+#endif
+
+        struct mem_cgroup_per_node *nodeinfo[0];
+        /* WARNING: nodeinfo must be the last member here */
+};
+
+
 /*
  * All "charge" functions with gfp_mask should use GFP_KERNEL or
  * (gfp_mask & GFP_RECLAIM_MASK). In current implementatin, memcg doesn't
