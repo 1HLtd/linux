@@ -16,6 +16,21 @@ static int loadavg_proc_show(struct seq_file *m, void *v)
 
 	get_avenrun(avnrun, FIXED_1/200, 0);
 
+	struct task_struct *tsk = NULL;
+	struct cgroup_subsys_state *css = NULL;
+
+	// If we have the task and the cgroup is not / we should display only zeroes as load average.
+	tsk = current_thread_info()->task;
+	if (tsk != NULL) {
+		css = task_css(tsk, mem_cgroup_subsys_id);
+		if (strlen(css->cgroup->name->name) > 1) {
+			seq_printf(m, "%lu.%02lu %lu.%02lu %lu.%02lu %ld/%d %d\n", 0, 0, 0, 0, 0, 0, nr_running(), nr_threads, task_active_pid_ns(current)->last_pid);
+		} else {
+			goto normal_load_avg;
+		}
+	}
+
+	normal_load_avg:
 	seq_printf(m, "%lu.%02lu %lu.%02lu %lu.%02lu %ld/%d %d\n",
 		LOAD_INT(avnrun[0]), LOAD_FRAC(avnrun[0]),
 		LOAD_INT(avnrun[1]), LOAD_FRAC(avnrun[1]),
