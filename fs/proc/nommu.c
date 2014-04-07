@@ -129,7 +129,7 @@ static const struct file_operations proc_nommu_region_list_operations = {
 
 static int __init proc_nommu_init(void)
 {
-	proc_create("maps", S_IRUGO, NULL, &proc_nommu_region_list_operations);
+	proc_create("maps", S_IRUSR, NULL, &proc_nommu_region_list_operations);
 	return 0;
 }
 

@@ -384,7 +384,7 @@ struct proc_dir_entry *proc_symlink(const char *name,
 	struct proc_dir_entry *ent;
 
 	ent = __proc_create(&parent, name,
-			  (S_IFLNK | S_IRUGO | S_IWUGO | S_IXUGO),1);
+			  (S_IFLNK | S_IRUSR | S_IWUSR | S_IXUSR),1);
 
 	if (ent) {
 		ent->data = kmalloc((ent->size=strlen(dest))+1, GFP_KERNEL);
@@ -410,7 +410,7 @@ struct proc_dir_entry *proc_mkdir_data(const char *name, umode_t mode,
 	struct proc_dir_entry *ent;
 
 	if (mode == 0)
-		mode = S_IRUGO | S_IXUGO;
+		mode = S_IRUSR | S_IXUSR;
 
 	ent = __proc_create(&parent, name, S_IFDIR | mode, 2);
 	if (ent) {
@@ -452,8 +452,8 @@ struct proc_dir_entry *proc_create_data(const char *name, umode_t mode,
 		return NULL;
 	}
 
-	if ((mode & S_IALLUGO) == 0)
-		mode |= S_IRUGO;
+	if ((mode & S_ISUID|S_ISGID|S_ISVTX|S_IRWXU|S_IRWXG) == 0)
+		mode |= S_IRUSR | S_IXUSR;
 	pde = __proc_create(&parent, name, mode, 1);
 	if (!pde)
 		goto out;
