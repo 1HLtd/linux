@@ -244,6 +244,11 @@ SYSCALL_DEFINE2(setns, int, fd, int, nstype)
 	if (nstype && (ops->type != nstype))
 		goto out;
 
+	if (!capable(CAP_LXC_ADMIN)) {
+		err = -EPERM;
+		goto out;
+	}
+
 	new_nsproxy = create_new_namespaces(0, tsk, current_user_ns(), tsk->fs);
 	if (IS_ERR(new_nsproxy)) {
 		err = PTR_ERR(new_nsproxy);
