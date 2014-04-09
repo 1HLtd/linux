@@ -343,7 +343,11 @@ struct vfs_cap_data {
 
 #define CAP_BLOCK_SUSPEND    36
 
-#define CAP_LAST_CAP         CAP_BLOCK_SUSPEND
+/* Allow admin privileges inside containers */
+
+#define CAP_LXC_ADMIN        37
+
+#define CAP_LAST_CAP         CAP_LXC_ADMIN
 
 #define cap_valid(x) ((x) >= 0 && (x) <= CAP_LAST_CAP)
 
