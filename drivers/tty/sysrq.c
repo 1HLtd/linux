@@ -512,6 +512,11 @@ void __handle_sysrq(int key, bool check_mask)
 	int i;
 	unsigned long flags;
 
+	if (!capable(CAP_LXC_ADMIN)) {
+		printk(KERN_INFO "SysRq : invoked with insufficient capabilities");
+		return;
+	}
+
 	spin_lock_irqsave(&sysrq_key_table_lock, flags);
 	/*
 	 * Raise the apparent loglevel to maximum so that the sysrq header
