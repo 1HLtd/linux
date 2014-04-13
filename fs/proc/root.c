@@ -114,7 +114,7 @@ static struct dentry *proc_mount(struct file_system_type *fs_type,
 			return ERR_PTR(-EPERM);
 
 		/* Does the mounter have privilege over the pid namespace? */
-		if (!ns_capable(ns->user_ns, CAP_SYS_ADMIN))
+		if (!ns_capable(ns->user_ns, CAP_LXC_ADMIN))
 			return ERR_PTR(-EPERM);
 	}
 
