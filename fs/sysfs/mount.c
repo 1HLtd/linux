@@ -112,8 +112,11 @@ static struct dentry *sysfs_mount(struct file_system_type *fs_type,
 	struct super_block *sb;
 	int error;
 
+	if (!capable(CAP_LXC_ADMIN))
+		return ERR_PTR(-EPERM);
+
 	if (!(flags & MS_KERNMOUNT)) {
-		if (!capable(CAP_LXC_ADMIN) && !fs_fully_visible(fs_type))
+		if (!capable(CAP_SYS_ADMIN) && !fs_fully_visible(fs_type))
 			return ERR_PTR(-EPERM);
 
 		for (type = KOBJ_NS_TYPE_NONE; type < KOBJ_NS_TYPES; type++) {
