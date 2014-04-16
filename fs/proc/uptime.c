@@ -24,8 +24,9 @@ static int uptime_proc_show(struct seq_file *m, void *v)
 
 	idletime = 0;
 #ifdef CONFIG_MEMCG
-	idle.tv_sec = 0;
-	idle.tv_nsec = 0;
+	// initialize uptime in case something fails
+	uptime.tv_sec = 0;
+	uptime.tv_nsec = 0;
 	tsk = current_thread_info()->task;
 	if (tsk != NULL) {
 		css = task_css(tsk, mem_cgroup_subsys_id);
