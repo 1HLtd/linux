@@ -414,6 +414,8 @@ static int pstore_fill_super(struct super_block *sb, void *data, int silent)
 static struct dentry *pstore_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
+	if (!capable(CAP_LXC_ADMIN))
+		return ERR_PTR(-EPERM);
 	return mount_single(fs_type, flags, data, pstore_fill_super);
 }
 
