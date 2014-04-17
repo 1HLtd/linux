@@ -455,9 +455,12 @@ static struct dentry *devpts_mount(struct file_system_type *fs_type,
 
 	if (opts.newinstance)
 		s = sget(fs_type, NULL, set_anon_super, flags, NULL);
-	else
+	else {
+		if (!capable(CAP_LXC_ADMIN))
+			return ERR_PTR(-EPERM);
 		s = sget(fs_type, compare_init_pts_sb, set_anon_super, flags,
 			 NULL);
+	}
 
 	if (IS_ERR(s))
 		return ERR_CAST(s);
