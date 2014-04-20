@@ -74,7 +74,7 @@ static const struct file_operations uptime_proc_fops = {
 
 static int __init proc_uptime_init(void)
 {
-	proc_create("uptime", 0, NULL, &uptime_proc_fops);
+	proc_create("uptime", S_IRUGO, NULL, &uptime_proc_fops);
 	return 0;
 }
 module_init(proc_uptime_init);
