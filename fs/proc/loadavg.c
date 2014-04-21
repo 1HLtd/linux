@@ -24,13 +24,11 @@ static int loadavg_proc_show(struct seq_file *m, void *v)
 	if (tsk != NULL) {
 		css = task_css(tsk, mem_cgroup_subsys_id);
 		if (strlen(css->cgroup->name->name) > 1) {
-			seq_printf(m, "%lu.%02lu %lu.%02lu %lu.%02lu %ld/%d %d\n", 0, 0, 0, 0, 0, 0, nr_running(), nr_threads, task_active_pid_ns(current)->last_pid);
-		} else {
-			goto normal_load_avg;
+			seq_printf(m, "0.01 0.01 0.0 %ld/%d %d\n", nr_running(), nr_threads, task_active_pid_ns(current)->last_pid);
+			return 0;
 		}
 	}
 
-	normal_load_avg:
 	seq_printf(m, "%lu.%02lu %lu.%02lu %lu.%02lu %ld/%d %d\n",
 		LOAD_INT(avnrun[0]), LOAD_FRAC(avnrun[0]),
 		LOAD_INT(avnrun[1]), LOAD_FRAC(avnrun[1]),
@@ -54,7 +52,7 @@ static const struct file_operations loadavg_proc_fops = {
 
 static int __init proc_loadavg_init(void)
 {
-	proc_create("loadavg", 0, NULL, &loadavg_proc_fops);
+	proc_create("loadavg", S_IRUGO, NULL, &loadavg_proc_fops);
 	return 0;
 }
 module_init(proc_loadavg_init);
