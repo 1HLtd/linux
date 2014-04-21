@@ -17,6 +17,9 @@ static int show_schedstat(struct seq_file *seq, void *v)
 	int cpu;
 	int mask_len = DIV_ROUND_UP(NR_CPUS, 32) * 9;
 	char *mask_str = kmalloc(mask_len, GFP_KERNEL);
+#ifdef CONFIG_CPUSETS
+	struct task_struct *tsk;
+#endif
 
 	if (mask_str == NULL)
 		return -ENOMEM;
@@ -33,6 +36,11 @@ static int show_schedstat(struct seq_file *seq, void *v)
 		cpu = (unsigned long)(v - 2);
 		rq = cpu_rq(cpu);
 
+#ifdef CONFIG_CPUSETS
+		tsk = current_thread_info()->task;
+		if (tsk && !cpumask_test_cpu(cpu, &tsk->cpus_allowed))
+			return 0;
+#endif
 		/* runqueue-specific stats */
 		seq_printf(seq,
 		    "cpu%d %u 0 %u %u %u %u %llu %llu %lu",
@@ -49,7 +57,6 @@ static int show_schedstat(struct seq_file *seq, void *v)
 		rcu_read_lock();
 		for_each_domain(cpu, sd) {
 			enum cpu_idle_type itype;
-
 			cpumask_scnprintf(mask_str, mask_len,
 					  sched_domain_span(sd));
 			seq_printf(seq, "domain%d %s", dcount++, mask_str);
@@ -139,7 +146,7 @@ static const struct file_operations proc_schedstat_operations = {
 
 static int __init proc_schedstat_init(void)
 {
-	proc_create("schedstat", 0, NULL, &proc_schedstat_operations);
+	proc_create("schedstat", S_IRUGO, NULL, &proc_schedstat_operations);
 	return 0;
 }
 module_init(proc_schedstat_init);
