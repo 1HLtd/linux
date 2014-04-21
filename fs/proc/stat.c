@@ -87,7 +87,9 @@ static int show_stat(struct seq_file *p, void *v)
 	u64 sum_softirq = 0;
 	unsigned int per_softirq_sums[NR_SOFTIRQS] = {0};
 	struct timespec boottime;
-
+#ifdef CONFIG_CPUSETS
+	struct task_struct *tsk = current_thread_info()->task;
+#endif
 	user = nice = system = idle = iowait =
 		irq = softirq = steal = 0;
 	guest = guest_nice = 0;
@@ -95,6 +97,10 @@ static int show_stat(struct seq_file *p, void *v)
 	jif = boottime.tv_sec;
 
 	for_each_possible_cpu(i) {
+#ifdef CONFIG_CPUSETS
+		if (tsk != NULL && !cpumask_test_cpu(i, &tsk->cpus_allowed))
+			continue;
+#endif
 		user += kcpustat_cpu(i).cpustat[CPUTIME_USER];
 		nice += kcpustat_cpu(i).cpustat[CPUTIME_NICE];
 		system += kcpustat_cpu(i).cpustat[CPUTIME_SYSTEM];
@@ -131,6 +137,10 @@ static int show_stat(struct seq_file *p, void *v)
 	seq_putc(p, '\n');
 
 	for_each_online_cpu(i) {
+#ifdef CONFIG_CPUSETS
+		if (tsk != NULL && !cpumask_test_cpu(i, &tsk->cpus_allowed))
+			continue;
+#endif
 		/* Copy values here to work around gcc-2.95.3, gcc-2.96 */
 		user = kcpustat_cpu(i).cpustat[CPUTIME_USER];
 		nice = kcpustat_cpu(i).cpustat[CPUTIME_NICE];
