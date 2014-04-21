@@ -16,28 +16,37 @@ static int uptime_proc_show(struct seq_file *m, void *v)
 	u32 rem;
 	int i;
 #ifdef CONFIG_MEMCG
+	struct timespec cgroup_uptime;
 	struct task_struct *tsk, *root_tsk;
 	struct cgroup_subsys_state *css = NULL;
 	struct css_task_iter it;
-	int in_cgroup = 0, len = 0;
+	int in_cgroup = 0;
 #endif
 
 	idletime = 0;
 #ifdef CONFIG_MEMCG
 	// initialize uptime in case something fails
-	uptime.tv_sec = 0;
-	uptime.tv_nsec = 0;
+	cgroup_uptime.tv_sec = uptime.tv_sec = 0;
+	cgroup_uptime.tv_nsec = uptime.tv_nsec = 0;
 	tsk = current_thread_info()->task;
 	if (tsk != NULL) {
 		css = task_css(tsk, mem_cgroup_subsys_id);
 		if (strlen(css->cgroup->name->name) > 1) {
-			len = cgroup_task_count(css->cgroup);
-			/* now, get the first item */
-			css_task_iter_start(&css->cgroup->dummy_css, &it);
-			root_tsk = css_task_iter_next(&it);
-			css_task_iter_end(&it);
-			uptime = root_tsk->real_start_time;
-			goto print_uptime;      // skip to the printing part
+			/* now, get the first process from this cgroup */
+			int count = 0;
+			struct cgrp_cset_link *link;
+			list_for_each_entry(link, &css->cgroup->cset_links, cset_link) {
+				struct css_set *cset = link->cset;
+				list_for_each_entry(root_tsk, &cset->tasks, cg_list) {
+					if (count++ > 1000) {
+						break;
+					} else {
+						/* Assign the uptime here, otherwise the pointer will be invalid. */
+						cgroup_uptime = root_tsk->start_time;
+					}
+				}
+			}
+			in_cgroup = 1;
 		}
 	}
 #endif
@@ -50,13 +59,16 @@ static int uptime_proc_show(struct seq_file *m, void *v)
 	idle.tv_sec = div_u64_rem(nsec, NSEC_PER_SEC, &rem);
 	idle.tv_nsec = rem;
 
-	print_uptime:
-
-	seq_printf(m, "%lu.%02lu %lu.%02lu\n",
+	if (in_cgroup)
+		seq_printf(m, "%lu.%02lu 0.0\n",
+			(unsigned long) uptime.tv_sec - cgroup_uptime.tv_sec,
+			((uptime.tv_nsec - cgroup_uptime.tv_nsec) / (NSEC_PER_SEC / 100)));
+	else
+		seq_printf(m, "%lu.%02lu %lu.%02lu\n",
 			(unsigned long) uptime.tv_sec,
 			(uptime.tv_nsec / (NSEC_PER_SEC / 100)),
-			in_cgroup ? 0 : (unsigned long) idle.tv_sec,
-			in_cgroup ? 0 : (idle.tv_nsec / (NSEC_PER_SEC / 100)));
+			(unsigned long) idle.tv_sec,
+			(idle.tv_nsec / (NSEC_PER_SEC / 100)));
 	return 0;
 }
 
