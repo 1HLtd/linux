@@ -13,11 +13,11 @@
 static int loadavg_proc_show(struct seq_file *m, void *v)
 {
 	unsigned long avnrun[3];
+	struct task_struct *tsk = NULL;
+	struct cgroup_subsys_state *css = NULL;
 
 	get_avenrun(avnrun, FIXED_1/200, 0);
 
-	struct task_struct *tsk = NULL;
-	struct cgroup_subsys_state *css = NULL;
 
 	// If we have the task and the cgroup is not / we should display only zeroes as load average.
 	tsk = current_thread_info()->task;
