@@ -6,6 +6,9 @@
 #include <linux/time.h>
 #include <linux/kernel_stat.h>
 #include <asm/cputime.h>
+#ifdef CONFIG_MEMCG
+#include <linux/cgroup.h>
+#endif
 
 static int uptime_proc_show(struct seq_file *m, void *v)
 {
