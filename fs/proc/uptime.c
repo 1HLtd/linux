@@ -22,7 +22,6 @@ static int uptime_proc_show(struct seq_file *m, void *v)
 	struct timespec cgroup_uptime;
 	struct task_struct *tsk, *root_tsk;
 	struct cgroup_subsys_state *css = NULL;
-	struct css_task_iter it;
 	int in_cgroup = 0;
 #endif
 
