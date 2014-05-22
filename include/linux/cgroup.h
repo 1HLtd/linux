@@ -929,6 +929,8 @@ unsigned short css_id(struct cgroup_subsys_state *css);
 struct cgroup_subsys_state *css_from_dir(struct dentry *dentry,
 					 struct cgroup_subsys *ss);
 
+int get_cgroup_uptime(struct timespec *cgroup_uptime);
+
 #else /* !CONFIG_CGROUPS */
 
 static inline int cgroup_init_early(void) { return 0; }
