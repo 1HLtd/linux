@@ -950,6 +950,8 @@ static inline int cgroup_attach_task_all(struct task_struct *from,
 	return 0;
 }
 
+int get_cgroup_uptime(struct timespec *cgroup_uptime) { return 0; }
+
 #endif /* !CONFIG_CGROUPS */
 
 #endif /* _LINUX_CGROUP_H */
