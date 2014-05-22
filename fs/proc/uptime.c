@@ -30,24 +30,24 @@ static int uptime_proc_show(struct seq_file *m, void *v)
 	// initialize uptime in case something fails
 	cgroup_uptime.tv_sec = uptime.tv_sec = 0;
 	cgroup_uptime.tv_nsec = uptime.tv_nsec = 0;
-		css = task_css(current, mem_cgroup_subsys_id);
-		if (strlen(css->cgroup->name->name) > 1) {
-			/* now, get the first process from this cgroup */
-			int count = 0;
-			struct cgrp_cset_link *link;
-			list_for_each_entry(link, &css->cgroup->cset_links, cset_link) {
-				struct css_set *cset = link->cset;
-				list_for_each_entry(root_tsk, &cset->tasks, cg_list) {
-					if (count++ > 1000) {
-						break;
-					} else {
-						/* Assign the uptime here, otherwise the pointer will be invalid. */
-						cgroup_uptime = root_tsk->start_time;
-					}
+	css = task_css(current, mem_cgroup_subsys_id);
+	if (strlen(css->cgroup->name->name) > 1) {
+		/* now, get the first process from this cgroup */
+		int count = 0;
+		struct cgrp_cset_link *link;
+		list_for_each_entry(link, &css->cgroup->cset_links, cset_link) {
+			struct css_set *cset = link->cset;
+			list_for_each_entry(root_tsk, &cset->tasks, cg_list) {
+				if (count++ > 1000) {
+					break;
+				} else {
+					/* Assign the uptime here, otherwise the pointer will be invalid. */
+					cgroup_uptime = root_tsk->start_time;
 				}
 			}
-			in_cgroup = 1;
 		}
+		in_cgroup = 1;
+	}
 #endif
 
 	for_each_possible_cpu(i)
