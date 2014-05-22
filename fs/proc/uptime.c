@@ -38,12 +38,13 @@ static int uptime_proc_show(struct seq_file *m, void *v)
 		list_for_each_entry(link, &css->cgroup->cset_links, cset_link) {
 			struct css_set *cset = link->cset;
 			list_for_each_entry(root_tsk, &cset->tasks, cg_list) {
-				if (count++ > 1000) {
+				if (count > 10000) {
 					break;
 				} else {
 					/* Assign the uptime here, otherwise the pointer will be invalid. */
 					cgroup_uptime = root_tsk->start_time;
 				}
+				count++;
 			}
 		}
 		in_cgroup = 1;
