@@ -20,7 +20,7 @@ static int uptime_proc_show(struct seq_file *m, void *v)
 	int i;
 #ifdef CONFIG_MEMCG
 	struct timespec cgroup_uptime;
-	struct task_struct *tsk, *root_tsk;
+	struct task_struct *root_tsk;
 	struct cgroup_subsys_state *css = NULL;
 	int in_cgroup = 0;
 #endif
@@ -30,9 +30,7 @@ static int uptime_proc_show(struct seq_file *m, void *v)
 	// initialize uptime in case something fails
 	cgroup_uptime.tv_sec = uptime.tv_sec = 0;
 	cgroup_uptime.tv_nsec = uptime.tv_nsec = 0;
-	tsk = current_thread_info()->task;
-	if (tsk != NULL) {
-		css = task_css(tsk, mem_cgroup_subsys_id);
+		css = task_css(current, mem_cgroup_subsys_id);
 		if (strlen(css->cgroup->name->name) > 1) {
 			/* now, get the first process from this cgroup */
 			int count = 0;
@@ -50,7 +48,6 @@ static int uptime_proc_show(struct seq_file *m, void *v)
 			}
 			in_cgroup = 1;
 		}
-	}
 #endif
 
 	for_each_possible_cpu(i)
