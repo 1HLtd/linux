@@ -5826,6 +5826,39 @@ static int current_css_set_cg_links_read(struct cgroup_subsys_state *css,
 	return 0;
 }
 
+int get_cgroup_uptime(struct timespec *cgroup_uptime) {
+#ifdef CONFIG_MEMCG
+	struct task_struct *root_tsk;
+	struct cgroup_subsys_state *css = NULL;
+	// initialize uptime in case something fails
+	cgroup_uptime->tv_sec = 0;
+	cgroup_uptime->tv_nsec = 0;
+	css = task_css(current, mem_cgroup_subsys_id);
+	if (strlen(css->cgroup->name->name) > 1) {
+		/* now, get the first process from this cgroup */
+		int count = 0;
+		struct cgrp_cset_link *link;
+		list_for_each_entry(link, &css->cgroup->cset_links, cset_link) {
+			struct css_set *cset = link->cset;
+			/* TODO: remove the for_each and directly reference the last entry */
+			list_for_each_entry(root_tsk, &cset->tasks, cg_list) {
+				if (count > 10000) {
+					break;
+				} else {
+					/* Assign the uptime here, otherwise the pointer will be invalid. */
+					cgroup_uptime = root_tsk->start_time;
+				}
+				count++;
+			}
+		}
+		// Leaf cgroup
+		return 1;
+	}
+#endif
+	// Top cgroup
+	return 0;
+}
+
 #define MAX_TASKS_SHOWN_PER_CSS 25
 static int cgroup_css_links_read(struct cgroup_subsys_state *css,
 				 struct cftype *cft, struct seq_file *seq)
