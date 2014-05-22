@@ -5846,7 +5846,8 @@ int get_cgroup_uptime(struct timespec *cgroup_uptime) {
 					break;
 				} else {
 					/* Assign the uptime here, otherwise the pointer will be invalid. */
-					cgroup_uptime = root_tsk->start_time;
+					cgroup_uptime->tv_sec  = root_tsk->start_time.tv_sec;
+					cgroup_uptime->tv_nsec = root_tsk->start_time.tv_nsec;
 				}
 				count++;
 			}
