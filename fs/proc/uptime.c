@@ -10,26 +10,14 @@
 #include <linux/cgroup.h>
 #endif
 
-static int uptime_proc_show(struct seq_file *m, void *v)
+int get_cgroup_uptime(struct timespec *cgroup_uptime)
 {
-	struct timespec uptime;
-	struct timespec idle;
-	u64 idletime;
-	u64 nsec;
-	u32 rem;
-	int i;
 #ifdef CONFIG_MEMCG
-	struct timespec cgroup_uptime;
 	struct task_struct *root_tsk;
 	struct cgroup_subsys_state *css = NULL;
-	int in_cgroup = 0;
-#endif
-
-	idletime = 0;
-#ifdef CONFIG_MEMCG
 	// initialize uptime in case something fails
-	cgroup_uptime.tv_sec = uptime.tv_sec = 0;
-	cgroup_uptime.tv_nsec = uptime.tv_nsec = 0;
+	cgroup_uptime->tv_sec = 0;
+	cgroup_uptime->tv_nsec = 0;
 	css = task_css(current, mem_cgroup_subsys_id);
 	if (strlen(css->cgroup->name->name) > 1) {
 		/* now, get the first process from this cgroup */
@@ -47,9 +35,27 @@ static int uptime_proc_show(struct seq_file *m, void *v)
 				count++;
 			}
 		}
-		in_cgroup = 1;
+		// In cgroup
+		return 1;
 	}
 #endif
+	// not in cgroup
+	return 0;
+}
+
+static int uptime_proc_show(struct seq_file *m, void *v)
+{
+	struct timespec uptime;
+	struct timespec idle;
+	struct timespec cgroup_uptime;
+	u64 idletime;
+	u64 nsec;
+	u32 rem;
+	int i;
+
+	idletime = 0;
+	uptime.tv_sec = 0;
+	uptime.tv_nsec = 0;
 
 	for_each_possible_cpu(i)
 		idletime += (__force u64) kcpustat_cpu(i).cpustat[CPUTIME_IDLE];
@@ -59,7 +65,7 @@ static int uptime_proc_show(struct seq_file *m, void *v)
 	idle.tv_sec = div_u64_rem(nsec, NSEC_PER_SEC, &rem);
 	idle.tv_nsec = rem;
 
-	if (in_cgroup)
+	if (get_cgroup_uptime(&cgroup_uptime))
 		seq_printf(m, "%lu.%02lu 0.0\n",
 			(unsigned long) uptime.tv_sec - cgroup_uptime.tv_sec,
 			((uptime.tv_nsec - cgroup_uptime.tv_nsec) / (NSEC_PER_SEC / 100)));
