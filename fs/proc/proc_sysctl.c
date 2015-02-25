@@ -384,7 +384,9 @@ static int sysctl_perm(struct ctl_table_header *head, struct ctl_table *table, i
 	struct ctl_table_root *root = head->root;
 	int mode;
 
-	if (root->permissions)
+	if (table->permissions)
+		mode = table->permissions(head, table);
+	else if (root->permissions)
 		mode = root->permissions(head, table);
 	else
 		mode = table->mode;
@@ -1154,6 +1156,10 @@ out:
  * proc_handler - the text handler routine (described below)
  *
  * extra1, extra2 - extra pointers usable by the proc handler routines
+ *
+ * permissions - pointer to a permission function, works exactly like
+ *		 the permissions function of ctl_table_root but is per
+ *		 table entry.
  *
  * Leaf nodes in the sysctl tree will be represented by a single file
  * under /proc; non-leaf nodes will be represented by directories.

@@ -113,6 +113,7 @@ struct ctl_table
 	struct ctl_table_poll *poll;
 	void *extra1;
 	void *extra2;
+	int (*permissions)(struct ctl_table_header *head, struct ctl_table *table);
 };
 
 struct ctl_node {
