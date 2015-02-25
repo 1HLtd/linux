@@ -66,6 +66,23 @@ static int proc_do_uts_string(struct ctl_table *table, int write,
 static DEFINE_CTL_TABLE_POLL(hostname_poll);
 static DEFINE_CTL_TABLE_POLL(domainname_poll);
 
+static int utsns_permissions(struct ctl_table_header *head,
+			     struct ctl_table *table)
+{
+	struct uts_namespace *uts_ns = current->nsproxy->uts_ns;
+	kuid_t root_uid = make_kuid(uts_ns->user_ns, 0);
+	int mode;
+
+	if (ns_capable(uts_ns->user_ns, CAP_SYS_ADMIN) ||
+	    uid_eq(root_uid, current_euid())) {
+		mode = (table->mode >> 6) & 7;
+		return (mode << 6) | (mode << 3) | mode;
+	}
+
+	return table->mode;
+}
+
+
 static struct ctl_table uts_kern_table[] = {
 	{
 		.procname	= "ostype",
@@ -95,6 +112,7 @@ static struct ctl_table uts_kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_do_uts_string,
 		.poll		= &hostname_poll,
+		.permissions	= utsns_permissions,
 	},
 	{
 		.procname	= "domainname",
@@ -103,6 +121,7 @@ static struct ctl_table uts_kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_do_uts_string,
 		.poll		= &domainname_poll,
+		.permissions	= utsns_permissions,
 	},
 	{}
 };
